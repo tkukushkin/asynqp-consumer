@@ -2,6 +2,15 @@
 
 [![Build Status](https://travis-ci.org/tkukushkin/asynqp-consumer.svg?branch=master)](https://travis-ci.org/tkukushkin/asynqp-consumer)
 
+## Installation
+
+Requirements:
+* python 3.6
+
+```sh
+pip install asynqp-consumer
+```
+
 ## Example:
 
 ```python
