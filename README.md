@@ -1,5 +1,7 @@
 # Consumer utility class for AMQP
 
+[![Build Status](https://travis-ci.org/tkukushkin/asynqp-consumer.svg?branch=master)](https://travis-ci.org/tkukushkin/asynqp-consumer)
+
 ## Example:
 
 ```python
