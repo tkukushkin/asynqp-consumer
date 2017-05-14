@@ -1,6 +1,14 @@
 language: python
 python:
-  - "3.6"
+- '3.6'
 install:
-  - pip install .[test]
-script: py.test --cov-report html --cov-report xml --cov=src/asynqp_consumer tests/
+- pip install .[test]
+script: py.test tests/
+deploy:
+  provider: pypi
+  user: TimofeyKukushkin
+  password:
+    secure: oqV8qQdwi7wJTxHhwxjKknYB9LfZ5j7NA9BUEyXbV+MICgUOSKDWJFyuVljayVM/QfaUGcIyxAi54RYqavKcpUGpOGqXuEN8O7gEKCQ0WxYpvlG1+0EQ6JLYj4VeBtA2AZ0KLGKBU22qOke6FErTJHUFei4XQgWGC0zHXwZph60GOIpStjo31+xkBIhsGrw0+YvImdLNdecGOwBcwHCXHFkNXGc01EWk6xeBqdIWx4h2geMsTPpIHULs96jzEPc+D7LfJpmCT8cqcAO3iGUJUr2+C01rFFr61CEt5Ghkpl12u3cRPCWyPmeVUKO/gF3bKJeA0tkkHSIBF/bJEcBPbRS6g2HikYQD8dPPmUUYlCikV0p7xLMLkvqgXAL/ZJ3bB7pmkJ2q8duwOB2dL1EwZyWWVXQZ08G8vAGbGV6t6CbQMYBfJOjjwhqEmXnn8V5/VtdKWTBbToAR3FFkWzzhU9+kjCbwOv9rMb8pJr9Ngc7t3WyBDA4uckGxuouBzxH4+ZZ8ibQaVqj+28pfIdF1jLWAEVTlon1AykWijIkplj6rwVTtgfBQ3euxRRiOjTtUK9c9GK4ZmDSguFgLBisPJNmtszlIuKH2IeQr0FkbMgoBfB/uB3sin8tdjyc6bQJ78bDpuGPAEO2dd3rlE1G1q+IsKaGogsKY7WEOwMJySa4=
+  on:
+    tags: true
+  distributions: sdist bdist_wheel
