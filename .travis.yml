@@ -3,4 +3,4 @@ python:
   - "3.6"
 install:
   - pip install .[test]
-script: pytest
+script: py.test --cov-report html --cov-report xml --cov=src/asynqp_consumer tests/
