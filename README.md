@@ -26,22 +26,26 @@ async def callback(messages: List[Message]) -> None:
         message.ack()
 
 
-exchange=Exchange('test_exchange')   
+exchange = Exchange('test_exchange')
+
+test_queue = Queue(
+    name='test_queue',
+    bindings=[
+        QueueBinding(
+            exchange=exchange,
+            routing_key='test_routing_key'
+        ),
+    ]
+)
+
+rabbitmq_connection_params = [  # Round robin
+    ConnectionParams.from_string('amqp:////'),
+    ConnectionParams(username='test', password='test')
+]
 
 consumer = Consumer(
-    queue=Queue(
-        name='test_queue',
-        bindings=[
-            QueueBinding(
-                exchange=exchange,
-                routing_key='test_routing_key'
-            ),
-        ]
-    ),
-    connection_params=[  # Round robin
-        ConnectionParams.from_string('amqp:////'),
-        ConnectionParams(username='test', password='test')
-    ],
+    queue=test_queue,
+    connection_params=rabbitmq_connection_params,
     callback=callback,
     prefetch_count=100,
     check_bulk_interval=0.3
