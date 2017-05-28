@@ -169,7 +169,7 @@ class Consumer:
     async def _check_bulk(self, loop: asyncio.BaseEventLoop) -> None:
         while True:
             await asyncio.sleep(self.check_bulk_interval, loop=loop)
-            await self._process_bulk(force=True)
+            asyncio.ensure_future(self._process_bulk(force=True))
 
     async def _process_bulk(self, force: bool = False) -> None:
         to_process = []  # type: List[Message]
