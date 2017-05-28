@@ -1,4 +1,4 @@
-from typing import Dict, Any
+from typing import Any  # pylint: disable=unused-import
 
 import asynqp
 
@@ -6,9 +6,9 @@ import asynqp
 class Message(object):
 
     def __init__(self, message: asynqp.IncomingMessage) -> None:
-        self.body: Dict[str, Any] = message.json()
-        self._message: asynqp.IncomingMessage = message
-        self._is_completed: bool = False
+        self.body = message.json()  # type: Any
+        self._message = message
+        self._is_completed = False
 
     def ack(self) -> None:
         if not self._is_completed:

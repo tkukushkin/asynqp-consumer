@@ -2,7 +2,8 @@ import asyncio
 import json
 import logging
 from itertools import cycle
-from typing import Any, AsyncIterator, Callable, Coroutine, Iterator, List
+from typing import Any, AsyncIterator, Callable, Coroutine, List, T
+from typing import Iterator  # pylint: disable=unused-import
 
 import asynqp
 
@@ -18,6 +19,20 @@ class ConsumerCloseException(Exception):
     pass
 
 
+class MessagesIterator(AsyncIterator[Message]):
+
+    def __init__(self, queue: asyncio.Queue, mq_queue: asynqp.Queue) -> None:
+        self._queue = queue
+        self._mq_queue = mq_queue
+
+    async def __aiter__(self):
+        await self._mq_queue.consume(callback=self._queue.put_nowait)
+        return self
+
+    async def __anext__(self):
+        return await self._queue.get()
+
+
 class Consumer:
 
     RECONNECT_TIMEOUT = 3  # seconds
@@ -28,20 +43,20 @@ class Consumer:
                  connection_params: List[ConnectionParams] = None,
                  prefetch_count: int = 0,
                  check_bulk_interval: float = 0.3) -> None:
-        self.queue: Queue = queue
-        self.callback: Callable[[Any], Any] = callback
+        self.queue = queue
+        self.callback = callback
         self.connection_params = connection_params or [ConnectionParams()]
         self.prefetch_count = prefetch_count
         self.check_bulk_interval = check_bulk_interval
 
-        self._connection_params_iterator: Iterator[ConnectionParams] = cycle(self.connection_params)
-        self._connection: asynqp.Connection = None
-        self._channel: asynqp.Channel = None
-        self._queue: asynqp.Queue = None
-        self._reconnect_attempts: int = 0
-        self._messages: List[Message] = []
+        self._connection_params_iterator = cycle(self.connection_params)  # type: Iterator[ConnectionParams]
+        self._connection = None  # type: asynqp.Connection
+        self._channel = None  # type: asynqp.Channel
+        self._queue = None  # type: asynqp.Queue
+        self._reconnect_attempts = 0
+        self._messages = []  # type: List[Message]
         self._messages_lock = asyncio.Lock()
-        self._closed: asyncio.Future = None
+        self._closed = None  # type: asyncio.Future
 
     async def start(self, loop: asyncio.BaseEventLoop = None) -> None:
         assert not self._closed, 'Consumer already started.'
@@ -64,7 +79,7 @@ class Consumer:
                 logger.exception(str(e))
 
                 self._reconnect_attempts += 1
-                timeout: int = self.RECONNECT_TIMEOUT * min(self._reconnect_attempts, 10)
+                timeout = self.RECONNECT_TIMEOUT * min(self._reconnect_attempts, 10)
 
                 logger.info('Trying to recconnect in %d seconds.', timeout)
 
@@ -97,7 +112,7 @@ class Consumer:
 
         await self._channel.set_qos(prefetch_count=self.prefetch_count)
 
-        self._queue: asynqp.Queue = await self._channel.declare_queue(
+        self._queue = await self._channel.declare_queue(  # type: asynqp.Queue
             name=self.queue.name,
             durable=self.queue.durable,
             exclusive=self.queue.exclusive,
@@ -146,13 +161,10 @@ class Consumer:
             if self.prefetch_count != 0:
                 await self._process_bulk()
 
-    async def _iter_messages(self, loop: asyncio.BaseEventLoop) -> AsyncIterator[asynqp.IncomingMessage]:
+    def _iter_messages(self, loop: asyncio.BaseEventLoop) -> AsyncIterator[asynqp.IncomingMessage]:
         messages_queue = asyncio.Queue(loop=loop)
 
-        await self._queue.consume(callback=messages_queue.put_nowait)
-
-        while True:
-            yield await messages_queue.get()
+        return MessagesIterator(messages_queue, self._queue)
 
     async def _check_bulk(self, loop: asyncio.BaseEventLoop) -> None:
         while True:
@@ -160,7 +172,7 @@ class Consumer:
             await self._process_bulk(force=True)
 
     async def _process_bulk(self, force: bool = False) -> None:
-        to_process: List[Message] = []
+        to_process = []  # type: List[Message]
 
         with await self._messages_lock:
             count = self.prefetch_count if self.prefetch_count != 0 else len(self._messages)

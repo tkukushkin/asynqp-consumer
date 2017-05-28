@@ -5,7 +5,7 @@
 ## Installation
 
 Requirements:
-* python 3.6
+* python >= 3.5 
 
 ```sh
 pip install asynqp-consumer

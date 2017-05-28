@@ -164,16 +164,29 @@ def test_close(mocker):
     assert isinstance(consumer._closed.exception(), ConsumerCloseException)
 
 
-async def fake_iter_messages(loop=None):
-    yield mock.Mock(spec=asynqp.IncomingMessage)
-    yield mock.Mock(spec=asynqp.IncomingMessage)
+class AsyncIter:
+
+    def __init__(self, iterable):
+        self.iterable = iter(iterable)
+
+    async def __aiter__(self):
+        return self
+
+    async def __anext__(self):
+        try:
+            return next(self.iterable)
+        except StopIteration:
+            raise StopAsyncIteration
 
 
 @pytest.mark.asyncio
 async def test__process_queue__when_prefetch_count_is_0(mocker, event_loop):
     # arrange
     consumer = get_consumer(callback=simple_callback, prefetch_count=0)
-    mocker.patch.object(consumer, '_iter_messages', new=fake_iter_messages)
+    mocker.patch.object(consumer, '_iter_messages', return_value=AsyncIter([
+        mock.Mock(spec=asynqp.IncomingMessage),
+        mock.Mock(spec=asynqp.IncomingMessage),
+    ]))
     mocker.patch.object(consumer, '_process_bulk', return_value=future())
 
     # act
@@ -190,7 +203,10 @@ async def test__process_queue__when_prefetch_count_is_0(mocker, event_loop):
 async def test__process_queue__when_prefetch_count_is_not_0(mocker, event_loop):
     # arrange
     consumer = get_consumer(callback=simple_callback, prefetch_count=1)
-    mocker.patch.object(consumer, '_iter_messages', new=fake_iter_messages)
+    mocker.patch.object(consumer, '_iter_messages', return_value=AsyncIter([
+        mock.Mock(spec=asynqp.IncomingMessage),
+        mock.Mock(spec=asynqp.IncomingMessage),
+    ]))
     mocker.patch.object(consumer, '_process_bulk', side_effect=iter([future(), future()]))
 
     # act
@@ -203,18 +219,16 @@ async def test__process_queue__when_prefetch_count_is_not_0(mocker, event_loop):
     consumer._process_bulk.mock_calls == [mocker.call(), mocker.call()]
 
 
-async def fake_iter_messages_with_invalid_body(loop):
-    message = mock.Mock(spec=asynqp.IncomingMessage)
-    message.json.side_effect = json.JSONDecodeError('message', '', 0)
-    message.body = 'Error json'
-    yield message
-
-
 @pytest.mark.asyncio
 async def test__process_queue__when_message_is_invalid_json(mocker, event_loop):
     # arrange
     consumer = get_consumer(callback=simple_callback, prefetch_count=1)
-    mocker.patch.object(consumer, '_iter_messages', new=fake_iter_messages_with_invalid_body)
+
+    message = mock.Mock(spec=asynqp.IncomingMessage)
+    message.json.side_effect = json.JSONDecodeError('message', '', 0)
+    message.body = 'Error json'
+
+    mocker.patch.object(consumer, '_iter_messages', return_value=AsyncIter([message]))
 
     # act
     await consumer._process_queue(loop=event_loop)

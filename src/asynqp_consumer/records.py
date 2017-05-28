@@ -1,38 +1,79 @@
-from typing import NamedTuple, Dict, Union, List
+from abc import ABCMeta
+from typing import Dict, List, Union
 from urllib.parse import urlparse
 
 
-class Exchange(NamedTuple):
-    name: str
-    type: str = 'topic'
-    durable: bool = True
-    auto_delete: bool = False
-    internal: bool = False
-    arguments: Dict[str, Union[int, float, str]] = None
+ArgumentsType = Dict[str, Union[int, float, str]]
 
 
-class QueueBinding(NamedTuple):
-    exchange: Exchange
-    routing_key: str
-    arguments: Dict[str, Union[int, float, str]] = None
+class BaseObject(metaclass=ABCMeta):
+
+    __slots__ = []
+
+    def __eq__(self, other):
+        if type(self) != type(other):  # pylint: disable=unidiomatic-typecheck
+            return False
+        for name in self.__slots__:
+            if getattr(self, name) != getattr(other, name):
+                return False
+        return True
+
+    def __repr__(self):
+        return '<{} {}>'.format(
+            type(self).__name__,
+            ' '.join('{}={}'.format(name, getattr(self, name)) for name in self.__slots__)
+        )
 
 
-class Queue(NamedTuple):
-    name: str
-    bindings: List[QueueBinding] = []
-    durable: bool = True
-    exclusive: bool = False
-    auto_delete: bool = False
-    arguments: Dict[str, Union[int, float, str]] = None
+class Exchange(BaseObject):
+
+    __slots__ = ['name', 'type', 'durable', 'auto_delete', 'internal', 'arguments']
+
+    def __init__(self, name: str, type: str = 'topic', durable: bool = True, auto_delete: bool = False,
+                 internal: bool = False, arguments: ArgumentsType = None):
+        self.name = name
+        self.type = type
+        self.durable = durable
+        self.auto_delete = auto_delete
+        self.internal = internal
+        self.arguments = arguments
 
 
-class ConnectionParams(NamedTuple):
+class QueueBinding(BaseObject):
 
-    host: str = 'localhost'
-    port: int = 5672
-    username: str = 'guest'
-    password: str = 'guest'
-    virtual_host: str = '/'
+    __slots__ = ['exchange', 'routing_key', 'arguments']
+
+    def __init__(self, exchange: Exchange, routing_key: str, arguments: ArgumentsType = None):
+        self.exchange = exchange
+        self.routing_key = routing_key
+        self.arguments = arguments
+
+
+class Queue(BaseObject):
+
+    __slots__ = ['name', 'bindings', 'durable', 'exclusive', 'auto_delete', 'arguments']
+
+    def __init__(self, name: str, bindings: List[QueueBinding] = None, durable: bool = True, exclusive: bool = False,
+                 auto_delete: bool = False, arguments: ArgumentsType = None):
+        self.name = name
+        self.bindings = bindings
+        self.durable = durable
+        self.exclusive = exclusive
+        self.auto_delete = auto_delete
+        self.arguments = arguments
+
+
+class ConnectionParams(BaseObject):
+
+    __slots__ = ['host', 'port', 'username', 'password', 'virtual_host']
+
+    def __init__(self, host: str = 'localhost', port: int = 5672, username: str = 'guest', password: str = 'guest',
+                 virtual_host: str = '/'):
+        self.host = host
+        self.port = port
+        self.username = username
+        self.password = password
+        self.virtual_host = virtual_host
 
     @classmethod
     def from_string(cls, connection_string: str) -> 'ConnectionParams':
