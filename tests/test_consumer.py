@@ -80,18 +80,16 @@ async def test__connect__ok(mocker, event_loop):
     # arrange
     connection = mocker.Mock(spec=asynqp.Connection)
 
-    queue = mocker.Mock(spec=asynqp.Queue)
-    queue.bind.return_value = future()
-
-    exchange = mocker.Mock(spec=asynqp.Exchange)
-
     channel = mocker.Mock(spec=asynqp.Channel)
     channel.set_qos.return_value = future()
-    channel.declare_exchange.return_value = future(exchange)
-    channel.declare_queue.return_value = future(queue)
 
-    connect_and_open_channel = mocker.patch('asynqp_consumer.consumer.asynqp.connect_and_open_channel')
+    connect_and_open_channel = mocker.patch('asynqp_consumer.consumer.connect_and_open_channel', autospec=True)
     connect_and_open_channel.return_value = future((connection, channel))
+
+    asynqp_queue = mocker.Mock(spec=asynqp.Queue)
+
+    declare_queue = mocker.patch('asynqp_consumer.consumer.declare_queue', autospec=True)
+    declare_queue.return_value = future(asynqp_queue)
 
     consumer = get_consumer(callback=simple_callback)
 
@@ -99,34 +97,29 @@ async def test__connect__ok(mocker, event_loop):
     await consumer._connect(loop=event_loop)
 
     # assert
-    connect_and_open_channel.assert_called_once_with(
+    connect_and_open_channel.assert_called_once_with(ConnectionParams(
         host='test_host',
         port=1234,
         username='test_username',
         password='test_password',
         virtual_host='test_virtual_host',
-        loop=event_loop,
-    )
-    channel.set_qos.assert_called_once_with(prefetch_count=0)
-    channel.declare_queue.assert_called_once_with(
+    ), event_loop)
+
+    declare_queue.assert_called_once_with(channel, Queue(
         name='test_queue',
-        durable=True,
-        auto_delete=False,
-        exclusive=False,
-        arguments=None,
-    )
-    channel.declare_exchange.assert_called_once_with(
-        name='test_exchange',
-        type='topic',
-        arguments=None,
-        auto_delete=False,
-        durable=True,
-    )
-    queue.bind.assert_called_once_with(
-        exchange=exchange,
-        routing_key='test_routing_key',
-        arguments=None,
-    )
+        bindings=[
+            QueueBinding(
+                exchange=Exchange('test_exchange'),
+                routing_key='test_routing_key'
+            )
+        ]
+    ))
+
+    channel.set_qos.assert_called_once_with(prefetch_count=0)
+
+    assert consumer._connection is connection
+    assert consumer._channel is channel
+    assert consumer._queue is asynqp_queue
 
 
 @pytest.mark.asyncio

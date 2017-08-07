@@ -2,13 +2,14 @@ import asyncio
 import json
 import logging
 from itertools import cycle
-from typing import Any, AsyncIterator, Callable, Coroutine, List, T
-from typing import Iterator  # pylint: disable=unused-import
+from typing import Any, AsyncIterator, Callable, Coroutine, Iterator, List  # pylint: disable=unused-import
 
 import asynqp
 
+from asynqp_consumer.connect import connect_and_open_channel
 from asynqp_consumer.helpers import gather
 from asynqp_consumer.message import Message
+from asynqp_consumer.queue import declare_queue
 from asynqp_consumer.records import ConnectionParams, Queue
 
 
@@ -99,41 +100,13 @@ class Consumer:
 
         logger.info('Connection params: %s', connection_params)
 
-        self._connection, self._channel = await asynqp.connect_and_open_channel(
-            host=connection_params.host,
-            port=connection_params.port,
-            username=connection_params.username,
-            password=connection_params.password,
-            virtual_host=connection_params.virtual_host,
-            loop=loop
-        )
+        self._connection, self._channel = await connect_and_open_channel(connection_params, loop)
 
         logger.info('Connection and channel are ready.')
 
         await self._channel.set_qos(prefetch_count=self.prefetch_count)
 
-        self._queue = await self._channel.declare_queue(  # type: asynqp.Queue
-            name=self.queue.name,
-            durable=self.queue.durable,
-            exclusive=self.queue.exclusive,
-            auto_delete=self.queue.auto_delete,
-            arguments=self.queue.arguments,
-        )
-
-        for binding in self.queue.bindings:
-            exchange = await self._channel.declare_exchange(
-                name=binding.exchange.name,
-                type=binding.exchange.type,
-                durable=binding.exchange.durable,
-                auto_delete=binding.exchange.auto_delete,
-                arguments=binding.exchange.arguments,
-            )
-
-            await self._queue.bind(
-                exchange=exchange,
-                routing_key=binding.routing_key,
-                arguments=binding.arguments,
-            )
+        self._queue = await declare_queue(self._channel, self.queue)
 
         logger.info('Queue is ready.')
 
