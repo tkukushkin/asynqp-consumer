@@ -7,7 +7,6 @@ from typing import (
     AsyncIterator,
     Callable,
     Coroutine,
-    Iterator,
     List,
     Optional,
     Dict,
@@ -83,12 +82,11 @@ class Consumer:
     async def start(self, loop: asyncio.BaseEventLoop = None) -> None:
         assert not self._closed, 'Consumer already started.'
 
-        self._closed = asyncio.Future()
+        self._closed = asyncio.Future(loo=loop)
 
         while not self._closed.done():
             try:
                 await self._connect(loop=loop)
-
                 await gather(
                     self._closed,
                     self._connection.closed,

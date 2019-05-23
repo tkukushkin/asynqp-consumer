@@ -17,10 +17,10 @@ setup(
         'test': [
             'pycodestyle',
             'pylint',
-            'pytest==3.0.7',
-            'pytest-asyncio==0.5.0',
-            'pytest-cov==2.5.1',
-            'pytest-mock==1.6.0',
+            'pytest==4.5.0',
+            'pytest-asyncio==0.10.0',
+            'pytest-cov==2.7.1',
+            'pytest-mock==1.10.4',
         ],
     },
     classifiers=[

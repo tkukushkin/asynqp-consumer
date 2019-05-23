@@ -51,8 +51,9 @@ async def test_start__two_attempts(mocker, event_loop):
     mocker.patch.object(consumer, '_check_bulk', return_value=future())
 
     consumer._connection = mocker.Mock(spec=asynqp.Connection)
-    consumer._connection.closed = asyncio.Future()
+    consumer._connection.closed = asyncio.Future(loop=event_loop)
 
+    mocker.patch('asynqp_consumer.consumer.gather', autospec=True, return_value=future())
     Future = mocker.patch('asynqp_consumer.consumer.asyncio.Future', autospec=True)
     Future.return_value.done.side_effect = iter([False, False, True])
     Future.return_value._loop = event_loop
@@ -162,7 +163,7 @@ class AsyncIter:
     def __init__(self, iterable):
         self.iterable = iter(iterable)
 
-    async def __aiter__(self):
+    def __aiter__(self):
         return self
 
     async def __anext__(self):

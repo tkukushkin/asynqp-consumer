@@ -1,9 +1,9 @@
 import asyncio
-from collections import Coroutine
-from typing import Union
+from collections.abc import Coroutine
+from typing import Any, Awaitable
 
 
-async def gather(*coros_or_futures: Union[Coroutine, asyncio.Future], loop: asyncio.BaseEventLoop = None):
+async def gather(*coros_or_futures: Awaitable[Any], loop: asyncio.BaseEventLoop = None):
     try:
         return await asyncio.gather(*coros_or_futures, loop=loop)
     except Exception:
