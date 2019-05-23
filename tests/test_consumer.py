@@ -176,10 +176,10 @@ class AsyncIter:
 async def test__process_queue__when_prefetch_count_is_0(mocker, event_loop):
     # arrange
     consumer = get_consumer(callback=simple_callback, prefetch_count=0)
-    mocker.patch.object(consumer, '_iter_messages', return_value=AsyncIter([
+    mocker.patch.object(consumer, '_get_messages_iterator', return_value=future(AsyncIter([
         mock.Mock(spec=asynqp.IncomingMessage),
         mock.Mock(spec=asynqp.IncomingMessage),
-    ]))
+    ])))
     mocker.patch.object(consumer, '_process_bulk', return_value=future())
 
     # act
@@ -196,10 +196,10 @@ async def test__process_queue__when_prefetch_count_is_0(mocker, event_loop):
 async def test__process_queue__when_prefetch_count_is_not_0(mocker, event_loop):
     # arrange
     consumer = get_consumer(callback=simple_callback, prefetch_count=1)
-    mocker.patch.object(consumer, '_iter_messages', return_value=AsyncIter([
+    mocker.patch.object(consumer, '_get_messages_iterator', return_value=future(AsyncIter([
         mock.Mock(spec=asynqp.IncomingMessage),
         mock.Mock(spec=asynqp.IncomingMessage),
-    ]))
+    ])))
     mocker.patch.object(consumer, '_process_bulk', side_effect=iter([future(), future()]))
 
     # act
@@ -221,7 +221,7 @@ async def test__process_queue__when_message_is_invalid_json(mocker, event_loop):
     message.json.side_effect = json.JSONDecodeError('message', '', 0)
     message.body = 'Error json'
 
-    mocker.patch.object(consumer, '_iter_messages', return_value=AsyncIter([message]))
+    mocker.patch.object(consumer, '_get_messages_iterator', return_value=future(AsyncIter([message])))
 
     # act
     await consumer._process_queue(loop=event_loop)
@@ -253,10 +253,29 @@ async def test__iter_messages(mocker, event_loop):
     # act
     result = []
     with pytest.raises(SomeException):
-        async for message in consumer._iter_messages(loop=event_loop):
+        messages_iterator = await consumer._get_messages_iterator(loop=event_loop)
+        async for message in messages_iterator:
             result.append(message)
 
     # assert
     assert len(result) == 2
     assert isinstance(result[0], Message)
     assert isinstance(result[1], Message)
+
+
+@pytest.mark.asyncio
+async def test__consume_with_arguments(mocker, event_loop):
+    # arrange
+    queue = mocker.Mock(spec=asynqp.Queue)
+    queue.consume.return_value = future()
+
+    consume_arguments = {'x-priority': 100}
+    consumer = get_consumer(callback=simple_callback, prefetch_count=0, consume_arguments=consume_arguments)
+    mocker.patch.object(consumer, '_queue', new=queue)
+    asyncio_queue = mocker.patch('asynqp_consumer.consumer.asyncio.Queue').return_value
+
+    # act
+    await consumer._get_messages_iterator(loop=event_loop)
+
+    # assert
+    queue.consume.assert_called_once_with(callback=asyncio_queue.put_nowait, arguments=consume_arguments)
