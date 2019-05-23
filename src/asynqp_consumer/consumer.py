@@ -82,7 +82,7 @@ class Consumer:
     async def start(self, loop: asyncio.BaseEventLoop = None) -> None:
         assert not self._closed, 'Consumer already started.'
 
-        self._closed = asyncio.Future(loo=loop)
+        self._closed = asyncio.Future(loop=loop)
 
         while not self._closed.done():
             try:
