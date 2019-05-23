@@ -3,7 +3,7 @@ from typing import Any  # pylint: disable=unused-import
 import asynqp
 
 
-class Message(object):
+class Message:
 
     def __init__(self, message: asynqp.IncomingMessage) -> None:
         self.body = message.json()  # type: Any

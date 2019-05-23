@@ -2,7 +2,16 @@ import asyncio
 import json
 import logging
 from itertools import cycle
-from typing import Any, AsyncIterator, Callable, Coroutine, Iterator, List  # pylint: disable=unused-import
+from typing import (
+    Any,
+    AsyncIterator,
+    Callable,
+    Coroutine,
+    Iterator,
+    List,
+    Optional,
+    Dict,
+)
 
 import asynqp
 
@@ -22,12 +31,20 @@ class ConsumerCloseException(Exception):
 
 class MessagesIterator(AsyncIterator[Message]):
 
-    def __init__(self, queue: asyncio.Queue, mq_queue: asynqp.Queue) -> None:
+    def __init__(
+            self,
+            queue: asyncio.Queue,
+            mq_queue: asynqp.Queue,
+            consume_arguments: Optional[Dict[str, Any]] = None
+    ) -> None:
         self._queue = queue
         self._mq_queue = mq_queue
+        self._consume_arguments = consume_arguments
 
-    async def __aiter__(self):
-        await self._mq_queue.consume(callback=self._queue.put_nowait)
+    async def consume(self):
+        await self._mq_queue.consume(callback=self._queue.put_nowait, arguments=self._consume_arguments)
+
+    def __aiter__(self):
         return self
 
     async def __anext__(self):
@@ -38,15 +55,19 @@ class Consumer:
 
     RECONNECT_TIMEOUT = 3  # seconds
 
-    def __init__(self,
-                 queue: Queue,
-                 callback: Callable[[List[Message]], Coroutine[Any, Any, None]],
-                 connection_params: List[ConnectionParams] = None,
-                 prefetch_count: int = 0,
-                 check_bulk_interval: float = 0.3) -> None:
+    def __init__(
+            self,
+            queue: Queue,
+            callback: Callable[[List[Message]], Coroutine[Any, Any, None]],
+            connection_params: List[ConnectionParams] = None,
+            prefetch_count: int = 0,
+            check_bulk_interval: float = 0.3,
+            consume_arguments: Optional[Dict[str, Any]] = None
+    ) -> None:
         self.queue = queue
         self.callback = callback
         self.connection_params = connection_params or [ConnectionParams()]
+        self.consume_arguments = consume_arguments
         self.prefetch_count = prefetch_count
         self.check_bulk_interval = check_bulk_interval
 
@@ -121,7 +142,9 @@ class Consumer:
 
     async def _process_queue(self, loop: asyncio.BaseEventLoop) -> None:
         self._messages = []
-        async for message in self._iter_messages(loop=loop):
+        messages_iterator = await self._get_messages_iterator(loop=loop)
+
+        async for message in messages_iterator:
             try:
                 wrapper = Message(message)
             except json.JSONDecodeError:
@@ -134,10 +157,17 @@ class Consumer:
             if self.prefetch_count != 0:
                 await self._process_bulk()
 
-    def _iter_messages(self, loop: asyncio.BaseEventLoop) -> AsyncIterator[asynqp.IncomingMessage]:
+    async def _get_messages_iterator(self, loop: asyncio.BaseEventLoop) -> AsyncIterator[asynqp.IncomingMessage]:
         messages_queue = asyncio.Queue(loop=loop)
 
-        return MessagesIterator(messages_queue, self._queue)
+        iterator = MessagesIterator(
+            queue=messages_queue,
+            mq_queue=self._queue,
+            consume_arguments=self.consume_arguments
+        )
+        await iterator.consume()
+
+        return iterator
 
     async def _check_bulk(self, loop: asyncio.BaseEventLoop) -> None:
         while True:
