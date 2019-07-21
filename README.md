@@ -2,6 +2,8 @@
 
 [![Build Status](https://travis-ci.org/tkukushkin/asynqp-consumer.svg?branch=master)](https://travis-ci.org/tkukushkin/asynqp-consumer)
 
+**DEPRECATED: use [aioamqp-consumer-best](https://github.com/tkukushkin/aioamqp-consumer-best)** instead.
+
 ## Installation
 
 Requirements:
