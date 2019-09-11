@@ -3,7 +3,7 @@ from setuptools import setup, find_packages
 
 setup(
     name='asynqp-consumer',
-    version='0.3.1',
+    version='0.4.0',
     author='Timofey Kukushkin',
     author_email='tima@kukushkin.me',
     url='https://github.com/tkukushkin/asynqp-consumer',
