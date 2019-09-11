@@ -231,6 +231,31 @@ async def test__process_queue__when_message_is_invalid_json(mocker, event_loop):
     assert consumer._messages == []
 
 
+@pytest.mark.asyncio
+async def test__process_queue__ack_message_when_json_is_invalid(mocker, event_loop, capsys):
+    # arrange
+    consumer = get_consumer(callback=simple_callback, prefetch_count=1, reject_invalid_json=False)
+
+    message = asynqp.IncomingMessage(
+        body="Invalid JSON",
+        sender=None,
+        delivery_tag=None,
+        exchange_name=None,
+        routing_key=None,
+    )
+    mocker.patch.object(message, 'ack', autospec=True)
+    mocker.patch.object(consumer, '_get_messages_iterator', return_value=future(AsyncIter([message])))
+    logger_exception = mocker.patch('asynqp_consumer.consumer.logger.exception')
+
+    # act
+    await consumer._process_queue(loop=event_loop)
+
+    # assert
+    assert consumer._messages == []
+    message.ack.assert_called_once_with()
+    logger_exception.assert_called_once_with('Failed to parse message body: %s', b'Invalid JSON')
+
+
 class SomeException(Exception):
     pass
 

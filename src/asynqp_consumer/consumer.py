@@ -10,6 +10,7 @@ from typing import (
     List,
     Optional,
     Dict,
+    Iterator,
 )
 
 import asynqp
@@ -61,7 +62,8 @@ class Consumer:
             connection_params: List[ConnectionParams] = None,
             prefetch_count: int = 0,
             check_bulk_interval: float = 0.3,
-            consume_arguments: Optional[Dict[str, Any]] = None
+            consume_arguments: Optional[Dict[str, Any]] = None,
+            reject_invalid_json: bool = True,
     ) -> None:
         self.queue = queue
         self.callback = callback
@@ -69,15 +71,16 @@ class Consumer:
         self.consume_arguments = consume_arguments
         self.prefetch_count = prefetch_count
         self.check_bulk_interval = check_bulk_interval
+        self.reject_invalid_json = reject_invalid_json
 
         self._connection_params_iterator = cycle(self.connection_params)  # type: Iterator[ConnectionParams]
-        self._connection = None  # type: asynqp.Connection
-        self._channel = None  # type: asynqp.Channel
-        self._queue = None  # type: asynqp.Queue
+        self._connection = None  # type: Optional[asynqp.Connection]
+        self._channel = None  # type: Optional[asynqp.Channel]
+        self._queue = None  # type: Optional[asynqp.Queue]
         self._reconnect_attempts = 0
         self._messages = []  # type: List[Message]
         self._messages_lock = asyncio.Lock()
-        self._closed = None  # type: asyncio.Future
+        self._closed = None  # type: Optional[asyncio.Future]
 
     async def start(self, loop: asyncio.BaseEventLoop = None) -> None:
         assert not self._closed, 'Consumer already started.'
@@ -147,7 +150,10 @@ class Consumer:
                 wrapper = Message(message)
             except json.JSONDecodeError:
                 logger.exception('Failed to parse message body: %s', message.body)
-                message.reject(requeue=True)
+                if self.reject_invalid_json:
+                    message.reject(requeue=True)
+                else:
+                    message.ack()
                 continue
 
             self._messages.append(wrapper)
